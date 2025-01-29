@@ -29,12 +29,15 @@ def get_ollama_response(prompt):
             if response.status_code == 200:
                 st.write("### Debug: API request successful. Streaming response...")
                 response_text = ""
+                raw_response = ""  # For storing the raw response
+                
                 for chunk in response.iter_lines():
                     if chunk:  # Only process non-empty chunks
                         try:
                             # Decode the chunk into a JSON object
                             json_obj = json.loads(chunk)
-                            st.write(f"**Received chunk:** `{json_obj}`")  # Debug: Print each chunk
+                            raw_response += str(json_obj) + "\n"  # Concatenate raw response
+                            st.write(f"**Received raw chunk:** `{json_obj}`")  # Debug: Print each chunk
 
                             if json_obj.get("done", False):  # Check if it's finished
                                 st.write("### Debug: Streaming complete.")
@@ -54,6 +57,10 @@ def get_ollama_response(prompt):
                         except json.JSONDecodeError as e:
                             st.error(f"### Debug: Error decoding a part of the response. Raw chunk: `{chunk}`")
                             st.error(f"Error details: `{e}`")
+                
+                # After the entire response, print the full raw response
+                st.write("### Raw Response from API:")
+                st.text(raw_response)  # Display full raw response for verification
             else:
                 st.error(f"### Debug: Error: {response.status_code} - {response.text}")
     except requests.exceptions.RequestException as e:
