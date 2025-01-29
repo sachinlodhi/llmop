@@ -12,11 +12,19 @@ def get_ollama_response(prompt):
         "model": "deepseek-r1:1.5b",
         "prompt": prompt
     }
-    response = requests.post(url, headers=headers, data=json.dumps(data))
-    if response.status_code == 200:
-        return response.json()['text']
-    else:
-        return "Error: Unable to get a response from Ollama API."
+    try:
+        response = requests.post(url, headers=headers, data=json.dumps(data))
+        # Log the raw response for debugging
+        st.write(f"Raw Response: {response.text}")
+
+        # Try to parse JSON
+        try:
+            response_json = response.json()
+            return response_json.get('text', "No text key found in the response.")
+        except ValueError:
+            return "Error: Response is not valid JSON."
+    except requests.exceptions.RequestException as e:
+        return f"Request failed: {e}"
 
 # Streamlit app layout
 st.title("Ollama Chatbot Interface")
