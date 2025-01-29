@@ -20,26 +20,36 @@ def get_ollama_response(prompt):
         "prompt": prompt
     }
     try:
+        # Debug: Print the API request payload
+        st.write("Sending request to Ollama API...")
+        st.write(f"Payload: {data}")
+
         # Create a streaming request to get data in chunks
         with requests.post(url, headers=headers, data=json.dumps(data), stream=True) as response:
             if response.status_code == 200:
+                st.write("API request successful. Streaming response...")
                 response_text = ""
                 for chunk in response.iter_lines():
                     if chunk:  # Only process non-empty chunks
                         try:
                             # Decode the chunk into a JSON object
                             json_obj = json.loads(chunk)
+                            st.write(f"Received chunk: {json_obj}")  # Debug: Print each chunk
+
                             if json_obj.get("done", False):  # Check if it's finished
+                                st.write("Streaming complete.")
                                 break
+
+                            # Append the response token to the full response
                             response_text += json_obj.get("response", "")
-                            
+
                             # Update the assistant's message in real-time
                             st.session_state.messages[-1]["content"] = clean_response(response_text)
                             st.rerun()  # Refresh the UI to show the updated message
                         except json.JSONDecodeError:
                             st.error("Error decoding a part of the response.")
             else:
-                st.error(f"Error: {response.status_code}")
+                st.error(f"Error: {response.status_code} - {response.text}")
     except requests.exceptions.RequestException as e:
         st.error(f"Request failed: {e}")
 
