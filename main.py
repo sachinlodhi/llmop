@@ -4,7 +4,6 @@ import json
 import re
 
 def clean_response(response_text):
-    # Remove tags like <think> from the response
     clean_text = re.sub(r'<.*?>', '', response_text)
     return clean_text.strip()
 
@@ -19,14 +18,8 @@ def get_ollama_response(prompt):
     }
 
     try:
-        st.write("### Debug: Sending request to Ollama API...")
-        st.write(f"**Payload:** `{data}`")
-        
         with requests.post(url, headers=headers, json=data, stream=True) as response:
             if response.status_code == 200:
-                st.write("### Debug: API request successful. Streaming response...")
-                
-                # Create a placeholder for the streaming response
                 response_placeholder = st.empty()
                 full_response = ""
                 
@@ -34,7 +27,6 @@ def get_ollama_response(prompt):
                     if line:
                         try:
                             json_response = json.loads(line)
-                            st.write(f"**Received chunk:** `{json_response}`")
                             
                             # Get the new token from the response
                             token = json_response.get("response", "")
@@ -42,26 +34,24 @@ def get_ollama_response(prompt):
                             
                             # Clean and display the current accumulated response
                             clean_text = clean_response(full_response)
-                            response_placeholder.markdown(clean_text)
+                            if clean_text.strip():  # Only display non-empty responses
+                                response_placeholder.markdown(clean_text)
                             
                             # Update the message in the chat history
                             if st.session_state.messages:
                                 st.session_state.messages[-1]["content"] = clean_text
                             
-                            # Check if the response is complete
                             if json_response.get("done", False):
-                                st.write("### Debug: Streaming complete.")
                                 break
                                 
-                        except json.JSONDecodeError as e:
-                            st.error(f"### Debug: Error decoding chunk: {e}")
-                            st.error(f"Raw chunk: `{line}`")
+                        except json.JSONDecodeError:
+                            continue
                             
             else:
-                st.error(f"### Debug: Error: {response.status_code} - {response.text}")
+                st.error("Failed to get response from the model")
                 
-    except requests.exceptions.RequestException as e:
-        st.error(f"### Debug: Request failed: {e}")
+    except requests.exceptions.RequestException:
+        st.error("Failed to connect to the Ollama server")
 
 # Streamlit app layout
 st.title("Ollama Chatbot Interface")
