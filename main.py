@@ -3,13 +3,10 @@ import requests
 import json
 import re
 
-# Function to clean the response by removing unwanted tokens (e.g., <think>, </think>)
 def clean_response(response_text):
-    # Remove <think>...</think> and any other unwanted tokens
-    clean_text = re.sub(r'<.*?>', '', response_text)  # Remove anything between <>
+    clean_text = re.sub(r'<.*?>', '', response_text)
     return clean_text.strip()
 
-# Function to make the request to the Ollama API
 def get_ollama_response(prompt):
     url = "http://localhost:11434/api/generate"
     headers = {
@@ -19,80 +16,67 @@ def get_ollama_response(prompt):
         "model": "deepseek-r1:1.5b",
         "prompt": prompt
     }
+    
     try:
-        # Debug: Print the API request payload
-        st.write("### Debug: Sending request to Ollama API...")
-        st.write(f"**Payload:** `{data}`")
-
-        # Create a streaming request to get data in chunks
-        with requests.post(url, headers=headers, data=json.dumps(data), stream=True) as response:
+        # Initialize empty response
+        full_response = ""
+        message_placeholder = st.empty()
+        
+        with requests.post(url, headers=headers, json=data, stream=True) as response:
             if response.status_code == 200:
-                st.write("### Debug: API request successful. Streaming response...")
-                response_text = ""
-                raw_response = ""  # For storing the raw response
-                
-                for chunk in response.iter_lines():
-                    if chunk:  # Only process non-empty chunks
+                for line in response.iter_lines():
+                    if line:
                         try:
-                            # Decode the chunk into a JSON object
-                            json_obj = json.loads(chunk)
-                            raw_response += str(json_obj) + "\n"  # Concatenate raw response
-                            st.write(f"**Received raw chunk:** `{json_obj}`")  # Debug: Print each chunk
-
-                            if json_obj.get("done", False):  # Check if it's finished
-                                st.write("### Debug: Streaming complete.")
+                            json_response = json.loads(line)
+                            
+                            # Get the response token
+                            token = json_response.get("response", "")
+                            full_response += token
+                            
+                            # Update the placeholder with the accumulated response
+                            clean_text = clean_response(full_response)
+                            message_placeholder.markdown(clean_text)
+                            
+                            # If we're done, break the loop
+                            if json_response.get("done", False):
                                 break
-
-                            # Append the response token to the full response
-                            response_text += json_obj.get("response", "")
-
-                            # Clean the response by removing unwanted tokens
-                            clean_text = clean_response(response_text)
-
-                            # Update the assistant's message in real-time
-                            st.session_state.messages[-1]["content"] = clean_text
-
-                            # Update the UI to display the updated assistant message
-                            st.experimental_rerun()  # Refresh the UI to show the updated message
+                                
                         except json.JSONDecodeError as e:
-                            st.error(f"### Debug: Error decoding a part of the response. Raw chunk: `{chunk}`")
-                            st.error(f"Error details: `{e}`")
+                            st.error(f"Error decoding response: {e}")
+                            continue
                 
-                # After the entire response, print the full raw response
-                st.write("### Raw Response from API:")
-                st.text(raw_response)  # Display full raw response for verification
+                # Update the final response in the chat history
+                if st.session_state.messages:
+                    st.session_state.messages[-1]["content"] = clean_response(full_response)
+                
+                return clean_response(full_response)
             else:
-                st.error(f"### Debug: Error: {response.status_code} - {response.text}")
+                st.error(f"Error: {response.status_code}")
+                return None
     except requests.exceptions.RequestException as e:
-        st.error(f"### Debug: Request failed: {e}")
+        st.error(f"Connection error: {e}")
+        return None
 
-# Streamlit app layout
+# Initialize the Streamlit app
 st.title("Ollama Chatbot Interface")
 
 # Initialize chat history
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Display chat messages
+# Display chat history
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Chat input for the user
+# Chat input
 if prompt := st.chat_input("Say something to the model:"):
-    # Add user message to chat history
+    # Add user message
     st.session_state.messages.append({"role": "user", "content": prompt})
-    
-    # Display user message in chat message container
     with st.chat_message("user"):
         st.markdown(prompt)
     
-    # Add assistant message placeholder to chat history
+    # Add assistant message placeholder
     st.session_state.messages.append({"role": "assistant", "content": ""})
-    
-    # Display assistant message placeholder
     with st.chat_message("assistant"):
-        assistant_placeholder = st.empty()
-    
-    # Get the response from the Ollama API (real-time)
-    get_ollama_response(prompt)
+        response = get_ollama_response(prompt)
