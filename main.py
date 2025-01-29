@@ -32,56 +32,44 @@ def get_ollama_response(prompt):
                             if json_obj.get("done", False):  # Check if it's finished
                                 break
                             response_text += json_obj.get("response", "")
+                            
+                            # Update the assistant's message in real-time
+                            st.session_state.messages[-1]["content"] = clean_response(response_text)
+                            st.rerun()  # Refresh the UI to show the updated message
                         except json.JSONDecodeError:
-                            st.write("Error decoding a part of the response.")
-
-                # Clean the response by removing unwanted tokens
-                clean_text = clean_response(response_text)
-
-                # Add assistant's response to history
-                st.session_state.history.append(("Assistant", clean_text))
-                
-                # Update the chat history in real-time
-                update_chat_history()
-                
+                            st.error("Error decoding a part of the response.")
             else:
-                st.write(f"Error: {response.status_code}")
+                st.error(f"Error: {response.status_code}")
     except requests.exceptions.RequestException as e:
-        st.write(f"Request failed: {e}")
-
-# Function to display chat history
-def update_chat_history():
-    for sender, message in st.session_state.history:
-        if sender == "User":
-            # Display the user's message on the left
-            st.markdown(f'<div style="text-align: left; padding: 5px; background-color: #e1f5fe; border-radius: 10px; margin-bottom: 5px;">**You**: {message}</div>', unsafe_allow_html=True)
-        else:
-            # Display the assistant's message on the right
-            st.markdown(f'<div style="text-align: right; padding: 5px; background-color: #f3f4f6; border-radius: 10px; margin-bottom: 5px;">**Assistant**: {message}</div>', unsafe_allow_html=True)
+        st.error(f"Request failed: {e}")
 
 # Streamlit app layout
 st.title("Ollama Chatbot Interface")
 
-# Initialize message history
-if "history" not in st.session_state:
-    st.session_state.history = []
+# Initialize chat history
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-# Display chat history
-update_chat_history()
+# Display chat messages
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-# Input box for the user
-user_input = st.text_input("Say something to the model:")
-
-# Submit button
-if st.button('Submit'):
-    if user_input:
-        # Add user input to the history
-        st.session_state.history.append(("User", user_input))
-        
-        # Get the response from the Ollama API (real-time)
-        get_ollama_response(user_input)
-        
-        # Clear input field after submission
-        st.experimental_rerun()
-    else:
-        st.warning("Please enter a prompt to submit.")
+# Chat input for the user
+if prompt := st.chat_input("Say something to the model:"):
+    # Add user message to chat history
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    
+    # Display user message in chat message container
+    with st.chat_message("user"):
+        st.markdown(prompt)
+    
+    # Add assistant message placeholder to chat history
+    st.session_state.messages.append({"role": "assistant", "content": ""})
+    
+    # Display assistant message placeholder
+    with st.chat_message("assistant"):
+        assistant_placeholder = st.empty()
+    
+    # Get the response from the Ollama API (real-time)
+    get_ollama_response(prompt)
