@@ -43,9 +43,14 @@ def get_ollama_response(prompt):
                             # Append the response token to the full response
                             response_text += json_obj.get("response", "")
 
+                            # Clean the response by removing unwanted tokens
+                            clean_text = clean_response(response_text)
+
                             # Update the assistant's message in real-time
-                            st.session_state.messages[-1]["content"] = clean_response(response_text)
-                            st.rerun()  # Refresh the UI to show the updated message
+                            st.session_state.messages[-1]["content"] = clean_text
+
+                            # Update the UI to display the updated assistant message
+                            st.experimental_rerun()  # Refresh the UI to show the updated message
                         except json.JSONDecodeError as e:
                             st.error(f"### Debug: Error decoding a part of the response. Raw chunk: `{chunk}`")
                             st.error(f"Error details: `{e}`")
