@@ -13,27 +13,30 @@ def get_ollama_response(prompt):
         "prompt": prompt
     }
     try:
-        response = requests.post(url, headers=headers, data=json.dumps(data))
-        # Log the raw response for debugging
-        st.write(f"Raw Response: {response.text}")
+        # Create a streaming request to get data in chunks
+        with requests.post(url, headers=headers, data=json.dumps(data), stream=True) as response:
+            if response.status_code == 200:
+                # Create an empty container for real-time updates
+                output_placeholder = st.empty()
+                response_text = ""
 
-        # Split the response by newlines and parse each JSON object
-        responses = response.text.strip().split("\n")
-        response_text = ""
-        
-        for item in responses:
-            try:
-                json_obj = json.loads(item)
-                response_text += json_obj.get('response', '')  # Get the response field from each chunk
-            except json.JSONDecodeError:
-                st.write("Error decoding a part of the response.")
-        
-        if not response_text:
-            return "Error: No valid responses in the API output."
-        return response_text.strip()
-        
+                for chunk in response.iter_lines():
+                    if chunk:  # Only process non-empty chunks
+                        try:
+                            # Decode the chunk into a JSON object
+                            json_obj = json.loads(chunk)
+                            if json_obj.get("done", False):  # Check if it's finished
+                                break
+                            response_text += json_obj.get("response", "")
+                            
+                            # Update the text area in real-time
+                            output_placeholder.text_area("Response from Ollama:", response_text, height=200)
+                        except json.JSONDecodeError:
+                            st.write("Error decoding a part of the response.")
+            else:
+                st.write(f"Error: {response.status_code}")
     except requests.exceptions.RequestException as e:
-        return f"Request failed: {e}"
+        st.write(f"Request failed: {e}")
 
 # Streamlit app layout
 st.title("Ollama Chatbot Interface")
@@ -44,9 +47,7 @@ user_input = st.text_input("Say something to the model:")
 # Submit button
 if st.button('Submit'):
     if user_input:
-        # Get the response from the Ollama API
-        response = get_ollama_response(user_input)
-        # Display the response in the output box
-        st.text_area("Response from Ollama:", response, height=200)
+        # Get the response from the Ollama API (real-time)
+        get_ollama_response(user_input)
     else:
         st.warning("Please enter a prompt to submit.")
