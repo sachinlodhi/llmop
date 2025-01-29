@@ -21,23 +21,23 @@ def get_ollama_response(prompt):
     }
     try:
         # Debug: Print the API request payload
-        st.write("Sending request to Ollama API...")
-        st.write(f"Payload: {data}")
+        st.write("### Debug: Sending request to Ollama API...")
+        st.write(f"**Payload:** `{data}`")
 
         # Create a streaming request to get data in chunks
         with requests.post(url, headers=headers, data=json.dumps(data), stream=True) as response:
             if response.status_code == 200:
-                st.write("API request successful. Streaming response...")
+                st.write("### Debug: API request successful. Streaming response...")
                 response_text = ""
                 for chunk in response.iter_lines():
                     if chunk:  # Only process non-empty chunks
                         try:
                             # Decode the chunk into a JSON object
                             json_obj = json.loads(chunk)
-                            st.write(f"Received chunk: {json_obj}")  # Debug: Print each chunk
+                            st.write(f"**Received chunk:** `{json_obj}`")  # Debug: Print each chunk
 
                             if json_obj.get("done", False):  # Check if it's finished
-                                st.write("Streaming complete.")
+                                st.write("### Debug: Streaming complete.")
                                 break
 
                             # Append the response token to the full response
@@ -46,12 +46,13 @@ def get_ollama_response(prompt):
                             # Update the assistant's message in real-time
                             st.session_state.messages[-1]["content"] = clean_response(response_text)
                             st.rerun()  # Refresh the UI to show the updated message
-                        except json.JSONDecodeError:
-                            st.error("Error decoding a part of the response.")
+                        except json.JSONDecodeError as e:
+                            st.error(f"### Debug: Error decoding a part of the response. Raw chunk: `{chunk}`")
+                            st.error(f"Error details: `{e}`")
             else:
-                st.error(f"Error: {response.status_code} - {response.text}")
+                st.error(f"### Debug: Error: {response.status_code} - {response.text}")
     except requests.exceptions.RequestException as e:
-        st.error(f"Request failed: {e}")
+        st.error(f"### Debug: Request failed: {e}")
 
 # Streamlit app layout
 st.title("Ollama Chatbot Interface")
