@@ -10,7 +10,7 @@ def clean_response(response_text):
     return clean_text.strip()
 
 # Function to make the request to the Ollama API
-def get_ollama_response(prompt, history):
+def get_ollama_response(prompt):
     url = "http://localhost:11434/api/generate"
     headers = {
         "Content-Type": "application/json"
@@ -23,10 +23,7 @@ def get_ollama_response(prompt, history):
         # Create a streaming request to get data in chunks
         with requests.post(url, headers=headers, data=json.dumps(data), stream=True) as response:
             if response.status_code == 200:
-                # Create an empty container for real-time updates
-                output_placeholder = st.empty()
                 response_text = ""
-                
                 for chunk in response.iter_lines():
                     if chunk:  # Only process non-empty chunks
                         try:
@@ -35,22 +32,32 @@ def get_ollama_response(prompt, history):
                             if json_obj.get("done", False):  # Check if it's finished
                                 break
                             response_text += json_obj.get("response", "")
-                            
-                            # Clean the response by removing unwanted tokens
-                            clean_text = clean_response(response_text)
-                            
-                            # Update the text area in real-time with clean text
-                            output_placeholder.text_area("Response from Ollama:", clean_text, height=200)
                         except json.JSONDecodeError:
                             st.write("Error decoding a part of the response.")
+
+                # Clean the response by removing unwanted tokens
+                clean_text = clean_response(response_text)
+
+                # Add assistant's response to history
+                st.session_state.history.append(("Assistant", clean_text))
                 
-                # Add the cleaned response to history
-                history.append(("Assistant", clean_text))
+                # Update the chat history in real-time
+                update_chat_history()
                 
             else:
                 st.write(f"Error: {response.status_code}")
     except requests.exceptions.RequestException as e:
         st.write(f"Request failed: {e}")
+
+# Function to display chat history
+def update_chat_history():
+    for sender, message in st.session_state.history:
+        if sender == "User":
+            # Display the user's message on the left
+            st.markdown(f'<div style="text-align: left; padding: 5px; background-color: #e1f5fe; border-radius: 10px; margin-bottom: 5px;">**You**: {message}</div>', unsafe_allow_html=True)
+        else:
+            # Display the assistant's message on the right
+            st.markdown(f'<div style="text-align: right; padding: 5px; background-color: #f3f4f6; border-radius: 10px; margin-bottom: 5px;">**Assistant**: {message}</div>', unsafe_allow_html=True)
 
 # Streamlit app layout
 st.title("Ollama Chatbot Interface")
@@ -59,12 +66,8 @@ st.title("Ollama Chatbot Interface")
 if "history" not in st.session_state:
     st.session_state.history = []
 
-# Display conversation history
-for sender, message in st.session_state.history:
-    if sender == "User":
-        st.write(f"**You**: {message}")
-    else:
-        st.write(f"**Assistant**: {message}")
+# Display chat history
+update_chat_history()
 
 # Input box for the user
 user_input = st.text_input("Say something to the model:")
@@ -76,7 +79,7 @@ if st.button('Submit'):
         st.session_state.history.append(("User", user_input))
         
         # Get the response from the Ollama API (real-time)
-        get_ollama_response(user_input, st.session_state.history)
+        get_ollama_response(user_input)
         
         # Clear input field after submission
         st.experimental_rerun()
