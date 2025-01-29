@@ -21,10 +21,15 @@ def get_ollama_response(prompt):
 # Streamlit app layout
 st.title("Ollama Chatbot Interface")
 
-# User input
-user_input = st.text_input("Say something to the model:", "hi who are you?")
+# Input box for the user
+user_input = st.text_input("Say something to the model:")
 
-# Display the model's response
-if user_input:
-    response = get_ollama_response(user_input)
-    st.write(f"Response from Ollama: {response}")
+# Submit button
+if st.button('Submit'):
+    if user_input:
+        # Get the response from the Ollama API
+        response = get_ollama_response(user_input)
+        # Display the response in the output box
+        st.text_area("Response from Ollama:", response, height=200)
+    else:
+        st.warning("Please enter a prompt to submit.")
