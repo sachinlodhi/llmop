@@ -17,12 +17,21 @@ def get_ollama_response(prompt):
         # Log the raw response for debugging
         st.write(f"Raw Response: {response.text}")
 
-        # Try to parse JSON
-        try:
-            response_json = response.json()
-            return response_json.get('text', "No text key found in the response.")
-        except ValueError:
-            return "Error: Response is not valid JSON."
+        # Split the response by newlines and parse each JSON object
+        responses = response.text.strip().split("\n")
+        response_text = ""
+        
+        for item in responses:
+            try:
+                json_obj = json.loads(item)
+                response_text += json_obj.get('response', '')  # Get the response field from each chunk
+            except json.JSONDecodeError:
+                st.write("Error decoding a part of the response.")
+        
+        if not response_text:
+            return "Error: No valid responses in the API output."
+        return response_text.strip()
+        
     except requests.exceptions.RequestException as e:
         return f"Request failed: {e}"
 
