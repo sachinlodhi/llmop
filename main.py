@@ -2,7 +2,6 @@ import streamlit as st
 import requests
 import json
 import re
-from time import sleep
 
 def clean_response(response_text):
     clean_text = re.sub(r'<.*?>', '', response_text)
@@ -15,48 +14,33 @@ def get_ollama_response(prompt):
     }
     data = {
         "model": "deepseek-r1:1.5b",
-        "prompt": prompt,
-        # Add performance optimization parameters
-        "num_ctx": 512,          # Reduce context window
-        "num_thread": 2,         # Limit threads for mobile
-        "temperature": 0.7,
-        "top_k": 40,
-        "top_p": 0.9,
+        "prompt": prompt
     }
 
     try:
         with requests.post(url, headers=headers, json=data, stream=True) as response:
             if response.status_code == 200:
+                # Create a placeholder for the streaming response
                 message_container = st.empty()
                 full_response = ""
-                buffer = ""
-                token_count = 0
-                update_frequency = 8  # Update UI every 8 tokens
                 
                 for line in response.iter_lines():
                     if line:
                         try:
                             json_response = json.loads(line)
                             token = json_response.get("response", "")
+                            full_response += token
                             
-                            if token:  # Only process non-empty tokens
-                                full_response += token
-                                buffer += token
-                                token_count += 1
-                                
-                                # Update UI less frequently
-                                if token_count >= update_frequency or json_response.get("done", False):
-                                    clean_text = clean_response(full_response)
-                                    if clean_text.strip():
-                                        message_container.markdown(clean_text)
-                                        sleep(0.01)  # Small delay to reduce UI strain
-                                    buffer = ""
-                                    token_count = 0
+                            # Clean and display the current accumulated response
+                            clean_text = clean_response(full_response)
+                            if clean_text.strip():  # Only display non-empty responses
+                                message_container.markdown(clean_text)
+                            
+                            # Update the message in the chat history
+                            if st.session_state.messages:
+                                st.session_state.messages[-1]["content"] = clean_text
                             
                             if json_response.get("done", False):
-                                # Final update to chat history
-                                if st.session_state.messages:
-                                    st.session_state.messages[-1]["content"] = clean_response(full_response)
                                 break
                                 
                         except json.JSONDecodeError:
@@ -67,23 +51,12 @@ def get_ollama_response(prompt):
     except requests.exceptions.RequestException:
         st.error("Failed to connect to the Ollama server", icon="🚨")
 
-# Streamlit configuration to reduce resource usage
-st.set_page_config(
-    page_title="Chat Interface",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
-
 # App title
 st.title("Ollama Chatbot Interface")
 
-# Initialize chat history (with max message limit)
+# Initialize chat history
 if "messages" not in st.session_state:
     st.session_state.messages = []
-
-# Limit chat history to last 10 messages to save memory
-max_messages = 10
-st.session_state.messages = st.session_state.messages[-max_messages:] if len(st.session_state.messages) > max_messages else st.session_state.messages
 
 # Display chat messages
 for message in st.session_state.messages:
