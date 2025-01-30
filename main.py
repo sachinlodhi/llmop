@@ -20,21 +20,22 @@ def get_ollama_response(prompt):
     try:
         with requests.post(url, headers=headers, json=data, stream=True) as response:
             if response.status_code == 200:
-                # Create a placeholder for the streaming response
-                message_container = st.empty()
+                response_placeholder = st.empty()
                 full_response = ""
                 
                 for line in response.iter_lines():
                     if line:
                         try:
                             json_response = json.loads(line)
+                            
+                            # Get the new token from the response
                             token = json_response.get("response", "")
                             full_response += token
                             
                             # Clean and display the current accumulated response
                             clean_text = clean_response(full_response)
                             if clean_text.strip():  # Only display non-empty responses
-                                message_container.markdown(clean_text)
+                                response_placeholder.markdown(clean_text)
                             
                             # Update the message in the chat history
                             if st.session_state.messages:
@@ -45,13 +46,14 @@ def get_ollama_response(prompt):
                                 
                         except json.JSONDecodeError:
                             continue
+                            
             else:
-                st.error("Failed to get response from the model", icon="🚨")
+                st.error("Failed to get response from the model")
                 
     except requests.exceptions.RequestException:
-        st.error("Failed to connect to the Ollama server", icon="🚨")
+        st.error("Failed to connect to the Ollama server")
 
-# App title
+# Streamlit app layout
 st.title("Ollama Chatbot Interface")
 
 # Initialize chat history
