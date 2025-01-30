@@ -54,7 +54,7 @@ def get_ollama_response(prompt):
         st.error("Failed to connect to the Ollama server")
 
 # Streamlit app layout
-st.title("Ollama Chatbot Interface")
+st.title("DeepSeek R1-1.5B ")
 
 # Initialize chat history
 if "messages" not in st.session_state:
